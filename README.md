@@ -1,0 +1,159 @@
+# EC2 Lambda 
+
+## Description
+Process 
+- A file dropped in an S3 bucket 
+- This event triggers a function.
+- The function starts an ec2 instance.  
+- The instance processes the file and drop another file in an s3 bucket.
+- The instance triggers a lambda function.
+- That function terminates the ec2 instance.
+
+## Diagram
+![EC2-LambdaProject Diagram](ec2-lambda-md.png)
+
+## AWS Objects Names
+
+### Policies
+- ec2-access-for-lambda  
+```
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "DescribeTags",
+			"Effect": "Allow",
+			"Action": "ec2:DescribeTags",
+			"Resource": "*"
+		},
+		{
+			"Sid": "StartStopTerminateInstancesInAccount",
+			"Effect": "Allow",
+			"Action": [
+				"ec2:StartInstances",
+				"ec2:RunInstances",
+				"ec2:TerminateInstances",
+				"ec2:StopInstances"
+			],
+			"Resource": [
+				"arn:aws:ec2:eu-west-1::image/ami-056d2deb35634ac41",
+				"arn:aws:ec2:eu-west-1:523759632228:key-pair/*",
+				"arn:aws:ec2:eu-west-1:523759632228:instance/*",
+				"arn:aws:ec2:eu-west-1:523759632228:network-interface/*",
+				"arn:aws:ec2:eu-west-1:523759632228:security-group/*",
+				"arn:aws:ec2:eu-west-1:523759632228:subnet/*",
+				"arn:aws:ec2:eu-west-1:523759632228:volume/*"
+			]
+		}
+	]
+}
+```
+- s3-access-for-ec2  
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "s3AccesForEc2",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::ec2-lambda-input",
+                "arn:aws:s3:::ec2-lambda-output",
+                "arn:aws:s3:::*/*"
+            ]
+        }
+    ]
+}
+```
+- lambda-access-for-ec2  
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction",
+                "lambda:InvokeAsync"
+            ],
+            "Resource": "arn:aws:lambda:*:523759632228:function:*"
+        }
+    ]
+}
+```
+### Roles
+- Lambda-EC2-Runner-Role  
+    Allows a Lambda function to start, stop and terminate and ec2 instance using 'lambda-access-for-ec2' policy  
+    Cloudwatch access using AWSLambdaBasicExecutionRole  
+- EC2-Processor-Role  
+    Interacts with S3 using s3-access-for-ec2  
+    Triggers its own termination using lambda-access-for-ec2  
+
+### Buckets
+- ec2-lambda-input
+- ec2-lambda-output
+
+### Lambdas
+- ec2Lambda-starter
+```
+import json
+import boto3
+
+def lambda_handler(event, context):
+    client = boto3.client("ec2")
+    
+    dryRun=eval(event['dryRun'])
+    
+    response = client.run_instances(
+        
+        ImageId='ami-056d2deb35634ac41',
+        KeyName='ec2-lambda-keypair',
+        InstanceType='t2.micro',
+        SecurityGroupIds=['sg-07c966846a2155ad3'],
+        MinCount=1,
+        MaxCount=1,
+        InstanceInitiatedShutdownBehavior='terminate',
+        DryRun=dryRun
+    )
+    return {
+        'statusCode': 200,
+        'body': json.dumps(response, default=str)
+    }
+```
+
+- ec2KillerLambda
+```
+import json
+import boto3 
+def lambda_handler(event, context):
+    client = boto3.client("ec2")
+    
+    instance = event['instance']
+    dryRun = eval(event['dryRun'])
+    
+    response = client.terminate_instances(
+        InstanceIds=[
+            instance
+        ],
+        DryRun=dryRun
+    )
+    return {
+        'statusCode': 200,
+        'body': json.dumps(response)
+    }
+
+```
+This function is not really necessary.  
+Setting _InstanceInitiatedShutdownBehavior_ to _True_ in the run_instances call in ec2Lambda-starter will cause it to terminate if it shuts down by itself.
+
+### AMIs
+Getting the instance Id for an ec2 instance from within the machine.  
+`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`  
+This will be useful if shutting down the instance from within dotnet core is an issue.
