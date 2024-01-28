@@ -36,7 +36,7 @@ Process
 				"ec2:StopInstances"
 			],
 			"Resource": [
-				"arn:aws:ec2:eu-west-1::image/ami-056d2deb35634ac41",
+				"arn:aws:ec2:eu-west-1::image/ami-*",
 				"arn:aws:ec2:eu-west-1:523759632228:key-pair/*",
 				"arn:aws:ec2:eu-west-1:523759632228:instance/*",
 				"arn:aws:ec2:eu-west-1:523759632228:network-interface/*",
@@ -46,6 +46,20 @@ Process
 			]
 		}
 	]
+}
+```
+- iam-access-for-lambda
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::523759632228:role/EC2-Processor-Role"
+        }
+    ]
 }
 ```
 - s3-access-for-ec2  
@@ -65,6 +79,7 @@ Process
             "Resource": [
                 "arn:aws:s3:::ec2-lambda-input",
                 "arn:aws:s3:::ec2-lambda-output",
+                "arn:aws:s3:::ec2-lambda-code",
                 "arn:aws:s3:::*/*"
             ]
         }
@@ -90,7 +105,8 @@ Process
 ```
 ### Roles
 - Lambda-EC2-Runner-Role  
-    Allows a Lambda function to start, stop and terminate and ec2 instance using 'lambda-access-for-ec2' policy  
+    Allows a Lambda function to start, stop and terminate and ec2 instance using _lambda-access-for-ec2_ policy  
+    _iam-access-for-lambda_ allows lambda to attache the Instance Profile to the instance
     Cloudwatch access using AWSLambdaBasicExecutionRole  
 - EC2-Processor-Role  
     Interacts with S3 using s3-access-for-ec2  
@@ -99,10 +115,14 @@ Process
 ### Buckets
 - ec2-lambda-input
 - ec2-lambda-output
+- ec2-lambda-code
 
 ### Lambdas
-- ec2Lambda-starter
+[Boto3 Reference](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/run_instances.html)
+- ec2Lambda-starter  
+_killable_appserver_ami_ environment variable must ontain the AMI Id 
 ```
+import os
 import json
 import boto3
 
@@ -111,15 +131,22 @@ def lambda_handler(event, context):
     
     dryRun=eval(event['dryRun'])
     
+    #base Amazon Linux 2 with dotnet 6.0 'ami-056d2deb35634ac41'
+    
+    baseAmi = os.environ['killable_appserver_ami']
+    
     response = client.run_instances(
         
-        ImageId='ami-056d2deb35634ac41',
+        ImageId=baseAmi, 
         KeyName='ec2-lambda-keypair',
         InstanceType='t2.micro',
         SecurityGroupIds=['sg-07c966846a2155ad3'],
         MinCount=1,
         MaxCount=1,
         InstanceInitiatedShutdownBehavior='terminate',
+        IamInstanceProfile={
+            'Name':'EC2-Processor-Role'
+        },
         DryRun=dryRun
     )
     return {
@@ -148,12 +175,17 @@ def lambda_handler(event, context):
         'statusCode': 200,
         'body': json.dumps(response)
     }
-
 ```
 This function is not really necessary.  
 Setting _InstanceInitiatedShutdownBehavior_ to _True_ in the run_instances call in ec2Lambda-starter will cause it to terminate if it shuts down by itself.
 
 ### AMIs
+[Reference 1](https://docs.servicestack.net/deploy-netcore-to-amazon-linux-2-ami#create-the-deployment-script)
+[Reference 2](https://operavps.com/docs/run-command-after-boot-in-linux/)
+
 Getting the instance Id for an ec2 instance from within the machine.  
 `wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`  
 This will be useful if shutting down the instance from within dotnet core is an issue.
+
+- killable-appserver-ami
+    Syncs both apps with _ec2-lambda-code bucket_ on boot  
