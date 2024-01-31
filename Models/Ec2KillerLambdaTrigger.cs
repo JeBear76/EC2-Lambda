@@ -6,5 +6,9 @@ namespace Ec2LambdaModels
     {
         [JsonPropertyName("instance")]
         public string Instance { get; set; } = null!;
+
+        [JsonPropertyName("dryRun")]
+        public string DryRun { get; set; } = "False";
+
     }
 }
