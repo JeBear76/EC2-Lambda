@@ -1,29 +1,28 @@
-﻿using Amazon.Lambda;
-using Amazon.S3;
+﻿using Amazon.S3;
 using Amazon.S3.Model;
-using Amazon.Util;
 using Ec2LambdaModels;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using System.Text.Json;
 
-Log.Logger = new LoggerConfiguration()
-          .WriteTo.File("processStarter.log")
-          .CreateLogger();
+
 
 IConfiguration config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .Build();
 
-var lambdaFunctionArn = config.GetSection("ec2KillerLambda").Value;
-Log.Information($"lambdaFunctionArn: {lambdaFunctionArn}");
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(config)
+    .WriteTo.File("processStarter.log")
+    .CreateLogger();
+
 var inputBucket = config.GetSection("ec2-lambda-input").Value;
 Log.Information($"inputBucket: {inputBucket}");
 var outputBucket = config.GetSection("ec2-lambda-output").Value;
 Log.Information($"outputBucket: {outputBucket}");
 
 IAmazonS3 amazonS3Client = new AmazonS3Client();
-IAmazonLambda amazonLambda = new AmazonLambdaClient();
+
 try
 {
     ListObjectsV2Response listObjectsV2Response = await amazonS3Client.ListObjectsV2Async(new ListObjectsV2Request()
@@ -59,17 +58,11 @@ try
     };
 
     var putObjectResponse = await amazonS3Client.PutObjectAsync(putObjectRequest);
-
-    await amazonLambda.InvokeAsync(new Amazon.Lambda.Model.InvokeRequest()
-    {
-        FunctionName = lambdaFunctionArn,
-        InvocationType = InvocationType.Event,
-        Payload = JsonSerializer.Serialize(new Ec2KillerLambdaTrigger() { Instance = EC2InstanceMetadata.InstanceId })
-    });
 }
 catch (Exception ex)
 {
     Log.Fatal(ex.Message);
-    Log.Fatal(ex.StackTrace);
+    if (ex.StackTrace is not null)
+        Log.Fatal(ex.StackTrace);
 }
 
