@@ -219,4 +219,10 @@ Getting the instance Id for an ec2 instance from within the machine.
 This will be useful if shutting down the instance from within dotnet core is an issue.
 
 - killable-appserver-ami
-    Syncs both apps with _ec2-lambda-code bucket_ on boot  
+script running on boot
+```
+aws s3 sync s3://ec2-lambda-code/process-starter/publish/ ~/apps/processStarter
+dotnet ~/apps/processStarter/ProcessStarter.dll
+. ~/apps/processStarter/runPostProcess.sh
+```
+
