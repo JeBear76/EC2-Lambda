@@ -10,7 +10,7 @@ Process
 - That function terminates the ec2 instance.
 
 ## Diagram
-![EC2-LambdaProject Diagram](ec2-lambda-md.png)
+![EC2-LambdaProject Diagram](https://github.com/JeBear76/python-diagrams/blob/a5511b5c30a12a18f0c3f8fbdf1d57e4bc07d681/ec2-lambda.png?raw=true)
 
 ## AWS Objects Names
 
@@ -33,7 +33,8 @@ Process
 				"ec2:StartInstances",
 				"ec2:RunInstances",
 				"ec2:TerminateInstances",
-				"ec2:StopInstances"
+				"ec2:StopInstances",
+                "ec2:CreateTags"
 			],
 			"Resource": [
 				"arn:aws:ec2:eu-west-1::image/ami-*",
@@ -132,13 +133,15 @@ Process
 ###
  Roles
 - Lambda-EC2-Runner-Role  
-    Allows a Lambda function to start, stop and terminate and ec2 instance using _lambda-access-for-ec2_ policy  
-    _iam-access-for-lambda_ allows lambda to attache the Instance Profile to the instance
-    Cloudwatch access using AWSLambdaBasicExecutionRole  
+    * _lambda-access-for-ec2_ policy: Allows a Lambda function to start, stop and terminate and ec2 instance using   
+    * _iam-access-for-lambda_ policy: Allows lambda to attache the Instance Profile to the instance
+    * _AWSLambdaBasicExecutionRole_ built-in policy: Cloudwatch access
+    * _AWSLambdaVPCAccessExecutionRole_ built-in policy: Needed to put functions in the VPC  
+
 - EC2-Processor-Role  
-    Interacts with S3 using _s3-access-for-ec2_  
-    Triggers its own termination using _lambda-access-for-ec2_ 
-    Log into cloudwatch using _cloudwatch-access-for-ec2_  
+    * _s3-access-for-ec2_ policy: Interacts with S3 using   
+    * _lambda-access-for-ec2_ policy: Allows triggering lambda functions 
+    * _cloudwatch-access-for-ec2_ policy: Log to cloudwatch
 
 ### Buckets
 - ec2-lambda-input
@@ -148,8 +151,9 @@ Process
 ### Lambdas
 [Boto3 Reference](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/run_instances.html)
 - ec2Lambda-starter  
-_killable_appserver_ami_ environment variable must contain the AMI Id  
-_key_pair_ environment variable must contain a valid key pair for ssh  
+    * _killable_appserver_ami_ environment variable must contain the AMI Id  
+    * _key_pair_ environment variable must contain a valid key pair for ssh  
+    * _subnet_id_ environment variable must contain a subnet id in a VPC with appropriate connectivity to S3, Lambda and Cloudwatch  
 ```
 import os
 import json
@@ -164,19 +168,49 @@ def lambda_handler(event, context):
     
     baseAmi = os.environ['killable_appserver_ami']
     keyPair = os.environ['key_pair']
+    subnetId = os.environ['subnet_id']
     
     response = client.run_instances(
         
         ImageId=baseAmi, 
         KeyName=keyPair,
         InstanceType='t2.micro',
-        SecurityGroupIds=['sg-07c966846a2155ad3','sg-017977e52a4f6c63c'],
+        SubnetId= subnetId,
         MinCount=1,
         MaxCount=1,
         InstanceInitiatedShutdownBehavior='terminate',
         IamInstanceProfile={
             'Name':'EC2-Processor-Role'
         },
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {
+                        'Key': 'Project',
+                        'Value': 'EC2-Lambda'
+                    },
+                ]
+            },
+            {
+                'ResourceType': 'network-interface',
+                'Tags': [
+                    {
+                        'Key': 'Project',
+                        'Value': 'EC2-Lambda'
+                    },
+                ]
+            },
+            {
+                'ResourceType': 'volume',
+                'Tags': [
+                    {
+                        'Key': 'Project',
+                        'Value': 'EC2-Lambda'
+                    },
+                ]
+            }
+        ],
         DryRun=dryRun
     )
     return {
@@ -185,8 +219,7 @@ def lambda_handler(event, context):
     }
 ```
 
-- ec2KillerLambda
-_dry_run_  environment variable must be set to 'True' or 'False'
+- ec2KillerLambda  
 ```
 import json
 import boto3 
@@ -208,20 +241,20 @@ def lambda_handler(event, context):
     }
 ```
 This function is not really necessary.  
-Setting _InstanceInitiatedShutdownBehavior_ to 'True' in the run_instances call in ec2Lambda-starter will cause it to terminate if it shuts down by itself. so the shutdown could be run in the runPotProcess.sh
+Setting _InstanceInitiatedShutdownBehavior_ to 'True' in the run_instances call in ec2Lambda-starter will cause it to terminate if it shuts down by itself. So the shutdown could be run in the runProcess.sh  
 
 ### AMIs
-[Reference 1](https://docs.servicestack.net/deploy-netcore-to-amazon-linux-2-ami#create-the-deployment-script)
-[Reference 2](https://operavps.com/docs/run-command-after-boot-in-linux/)
+[Reference 1](https://operavps.com/docs/run-command-after-boot-in-linux/)  
+[Reference 2](https://azole.medium.com/how-to-send-message-to-cloudwatch-when-script-has-an-error-79c96ca515f0)  
 
 Getting the instance Id for an ec2 instance from within the machine.  
 `wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`  
-This will be useful if shutting down the instance from within dotnet core is an issue.
+This will be useful if shutting down the instance from within dotnet core is an issue.  
 
 - killable-appserver-ami
-script running on boot
+Script running on boot
 ```
 aws s3 sync s3://ec2-lambda-code/process-starter/publish/ ~/apps/processStarter
 . ~/apps/processStarter/runProcess.sh
 ```
-
+_runProcess.sh_ (in solution) contains all instructions for the instance, including termination call to lambda.
