@@ -222,7 +222,6 @@ This will be useful if shutting down the instance from within dotnet core is an 
 script running on boot
 ```
 aws s3 sync s3://ec2-lambda-code/process-starter/publish/ ~/apps/processStarter
-dotnet ~/apps/processStarter/ProcessStarter.dll
-. ~/apps/processStarter/runPostProcess.sh
+. ~/apps/processStarter/runProcess.sh
 ```
 

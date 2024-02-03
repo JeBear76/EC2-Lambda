@@ -1,4 +1,6 @@
 ﻿#!/bin/sh
+dotnet ~/apps/processStarter/ProcessStarter.dll
+
 aws s3api put-object --bucket ec2-lambda-output --key processStarter.log --body ~/processStarter.log
 
 instanceId="`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`"
