@@ -133,7 +133,7 @@ Process
 ###
  Roles
 - Lambda-EC2-Runner-Role  
-    * _lambda-access-for-ec2_ policy: Allows a Lambda function to start, stop and terminate and ec2 instance using   
+    * _ec2-access-for-lambda_ policy: Allows a Lambda function to start, stop and terminate and ec2 instance using   
     * _iam-access-for-lambda_ policy: Allows lambda to attache the Instance Profile to the instance
     * _AWSLambdaBasicExecutionRole_ built-in policy: Cloudwatch access
     * _AWSLambdaVPCAccessExecutionRole_ built-in policy: Needed to put functions in the VPC  
