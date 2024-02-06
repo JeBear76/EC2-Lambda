@@ -82,37 +82,10 @@ Resources:
               - ''
               - - !Ref GenericPrefix
                 - !Ref ProjectName
-  SecureGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: secure-group
-      GroupDescription: No inbound traffic
-      VpcId: !Ref DedicatedVPC
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-  SecureGroupIngress:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Only Local
-      GroupId: !Ref SecureGroup
-      SourceSecurityGroupId: !Ref SecureGroup
-      IpProtocol: -1
-  SecureGroupEgress:
-    Type: AWS::EC2::SecurityGroupEgress
-    Properties:
-      Description: Outgoing Allowed
-      GroupId: !Ref SecureGroup
-      CidrIp: 0.0.0.0/0
-      IpProtocol: -1
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref DedicatedVPC
+      VpcId: !Ref DedicatedVPC      
       Tags:
         - Key: Project
           Value: 
@@ -120,6 +93,11 @@ Resources:
               - ''
               - - !Ref GenericPrefix
                 - !Ref ProjectName
+  PrivateSubnetRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTable      
+      SubnetId: !Ref PrivateSubnet
 
 # S3 Buckets
   InputBucket:
@@ -218,7 +196,8 @@ Resources:
           - Sid: VisualEditor0
             Effect: Allow
             Action: iam:PassRole
-            Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/EC2-Processor-Role
+            Resource: 
+              !Sub arn:aws:iam::${AWS::AccountId}:role/${EC2ProcessorRole}
       PolicyName: iam-access-for-lambda
       Roles: 
         - !Join
@@ -366,7 +345,7 @@ Resources:
           import boto3
           def lambda_handler(event, context):
               client = boto3.client("ec2")
-              dryRun=eval(event['dryRun'])
+              dryRun=eval(event.get('dryRun', 'False'))
               subnetId = os.environ['subnet_id']
               projectName = os.environ['project']
               instanceProfile = os.environ['instance_profile']
@@ -417,7 +396,7 @@ Resources:
                   UserData=f'''
                   aws s3 sync s3://{codeBucket}/process-starter/publish/ ~/apps/processStarter
                   . ~/apps/processStarter/runProcess.sh
-                  '''
+                  ''',
                   DryRun=dryRun
               )
               return {
@@ -456,7 +435,7 @@ Resources:
                 - EC2-Processor-Profile
       VpcConfig:
         SecurityGroupIds:
-          - !Ref SecureGroup
+          - !GetAtt DedicatedVPC.DefaultSecurityGroup
         SubnetIds:
           - !Ref PrivateSubnet
       Tags:
@@ -500,7 +479,7 @@ Resources:
       Timeout: 15
       VpcConfig:
         SecurityGroupIds:
-          - !Ref SecureGroup
+          - !GetAtt DedicatedVPC.DefaultSecurityGroup
         SubnetIds:
           - !Ref PrivateSubnet
       Tags:
