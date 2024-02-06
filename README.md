@@ -10,7 +10,8 @@ Process
 - That function terminates the ec2 instance.
 
 ## Diagram
-![EC2-LambdaProject Diagram](https://github.com/JeBear76/python-diagrams/blob/a5511b5c30a12a18f0c3f8fbdf1d57e4bc07d681/ec2-lambda.png?raw=true)
+![EC2-LambdaProject Diagram](https://github.com/JeBear76/python-diagrams/blob/main/ec2-lambda.png?raw=true)
+
 
 ## AWS Objects Names
 
