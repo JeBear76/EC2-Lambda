@@ -10,10 +10,9 @@ Process
 - That function terminates the ec2 instance.
 
 ## Diagram
-![EC2-LambdaProject Diagram](https://github.com/JeBear76/python-diagrams/blob/main/ec2-lambda.png?raw=true)
+![EC2-Lambda![EC2-LambdaProject Diagram](https://github.com/JeBear76/python-diagrams/blob/main/ec2-lambda.png?raw=true)
 
-
-## AWS Objects Names
+ts Names
 
 ### Policies
 - ec2-access-for-lambda  
@@ -154,26 +153,26 @@ Process
 - ec2Lambda-starter  
     * _killable_appserver_ami_ environment variable must contain the AMI Id  
     * _key_pair_ environment variable must contain a valid key pair for ssh  
-    * _subnet_id_ environment variable must contain a subnet id in a VPC with appropriate connectivity to S3, Lambda and Cloudwatch  
+    * _subnet_id_ environment variable must contain a subnet id in a VPC with appropriate connectivity to S3, Lambda and Cloudwatch
+    * _code_bucket_ environment variable must contain the name of the bucket where the code is found
+    * _instance_profile_ environment variable must contain the name of the instance profile to be used by the machine
+    * _project_ environment variable must contain the name of the project for tagging
 ```
 import os
 import json
 import boto3
-
 def lambda_handler(event, context):
     client = boto3.client("ec2")
-    
-    dryRun=eval(event['dryRun'])
-    
+    dryRun=eval(event.get('dryRun', 'False'))
+    subnetId = os.environ['subnet_id']
+    projectName = os.environ['project']
+    instanceProfile = os.environ['instance_profile']
     #base Amazon Linux 2 with dotnet 6.0 'ami-056d2deb35634ac41'
-    
     baseAmi = os.environ['killable_appserver_ami']
     keyPair = os.environ['key_pair']
-    subnetId = os.environ['subnet_id']
-    
+    codeBucket = os.environ['code_bucket']
     response = client.run_instances(
-        
-        ImageId=baseAmi, 
+        ImageId=baseAmi,
         KeyName=keyPair,
         InstanceType='t2.micro',
         SubnetId= subnetId,
@@ -181,7 +180,7 @@ def lambda_handler(event, context):
         MaxCount=1,
         InstanceInitiatedShutdownBehavior='terminate',
         IamInstanceProfile={
-            'Name':'EC2-Processor-Role'
+            'Name': instanceProfile
         },
         TagSpecifications=[
             {
@@ -189,7 +188,7 @@ def lambda_handler(event, context):
                 'Tags': [
                     {
                         'Key': 'Project',
-                        'Value': 'EC2-Lambda'
+                        'Value': projectName
                     },
                 ]
             },
@@ -198,7 +197,7 @@ def lambda_handler(event, context):
                 'Tags': [
                     {
                         'Key': 'Project',
-                        'Value': 'EC2-Lambda'
+                        'Value': projectName
                     },
                 ]
             },
@@ -207,7 +206,7 @@ def lambda_handler(event, context):
                 'Tags': [
                     {
                         'Key': 'Project',
-                        'Value': 'EC2-Lambda'
+                        'Value': projectName
                     },
                 ]
             }

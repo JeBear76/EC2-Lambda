@@ -393,6 +393,7 @@ Resources:
                           ]
                       }
                   ],
+                  UserData=f's3Bucket={codeBucket}',
                   DryRun=dryRun
               )
               return {
@@ -411,7 +412,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          killable_appserver_ami: ami-039827b0ebeaee084
+          killable_appserver_ami: ami-0abf34f97b1c6785d
           key_pair: 
             !Join
               - ''
