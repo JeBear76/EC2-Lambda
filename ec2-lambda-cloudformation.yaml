@@ -309,6 +309,9 @@ Resources:
                 }
             ]
         }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
       RoleName: 
         !Join
           - ''
@@ -324,6 +327,7 @@ Resources:
   EC2ProcessorRole:
     Type: AWS::IAM::Role
     Properties:
+
       AssumeRolePolicyDocument: |
         {
             "Version": "2012-10-17",
