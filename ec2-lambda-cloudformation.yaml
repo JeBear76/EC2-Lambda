@@ -12,7 +12,7 @@ Parameters:
     Default: ec2-lambda
   AvailabilityZoneForSubnet:
     Type: String
-    Default: eu-west-1
+    Default: eu-west-1a
 Resources:
 # VPC Endpoints
   CWLInterfaceEndpoint:
@@ -393,10 +393,6 @@ Resources:
                           ]
                       }
                   ],
-                  UserData=f'''
-                  aws s3 sync s3://{codeBucket}/process-starter/publish/ ~/apps/processStarter
-                  . ~/apps/processStarter/runProcess.sh
-                  ''',
                   DryRun=dryRun
               )
               return {
@@ -415,7 +411,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          killable_appserver_ami: ami-056d2deb35634ac41
+          killable_appserver_ami: ami-039827b0ebeaee084
           key_pair: 
             !Join
               - ''
