@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Description: EC2-Lambda
 Parameters:
   GenericPrefix:
@@ -53,9 +53,9 @@ Resources:
           - Effect: Allow
             Principal: '*'
             Action:
-              - 's3:*'
+              - s3:*
             Resource:
-              - 'arn:aws:s3:::*'
+              - arn:aws:s3:::*
 
 # Network
   DedicatedVPC:
@@ -85,7 +85,7 @@ Resources:
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref DedicatedVPC      
+      VpcId: !Ref DedicatedVPC
       Tags:
         - Key: Project
           Value: 
@@ -96,9 +96,9 @@ Resources:
   PrivateSubnetRouteTable:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref RouteTable      
+      RouteTableId: !Ref RouteTable
       SubnetId: !Ref PrivateSubnet
-
+      
 # S3 Buckets
   InputBucket:
     Type: AWS::S3::Bucket
@@ -109,7 +109,7 @@ Resources:
           - ''
           - - !Ref GenericPrefix
             - !Ref BucketPrefix
-            - "-input"
+            - '-input'
       Tags:
         - Key: Project
           Value: 
@@ -158,12 +158,12 @@ Resources:
     DependsOn: LambdaEC2RunnerRole
     Properties:
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Sid: DescribeTags
             Effect: Allow
             Action: ec2:DescribeTags
-            Resource: "*"
+            Resource: '*'
           - Sid: StartStopTerminateInstancesInAccount
             Effect: Allow
             Action:
@@ -181,35 +181,28 @@ Resources:
               - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/*
               - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:volume/*
       PolicyName: poc-ec2-access-for-lambda
-      Roles: 
-        - !Join
-            - ''
-            - - !Ref GenericPrefix
-              - Lambda-EC2-Runner-Role
+      Roles:
+        - !Ref LambdaEC2RunnerRole
   IAMAccessForLambdaPolicy:
     Type: AWS::IAM::Policy
     DependsOn: LambdaEC2RunnerRole
     Properties:
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Sid: VisualEditor0
             Effect: Allow
             Action: iam:PassRole
-            Resource: 
-              !Sub arn:aws:iam::${AWS::AccountId}:role/${EC2ProcessorRole}
+            Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${EC2ProcessorRole}
       PolicyName: iam-access-for-lambda
-      Roles: 
-        - !Join
-            - ''
-            - - !Ref GenericPrefix
-              - Lambda-EC2-Runner-Role
+      Roles:
+        - !Ref LambdaEC2RunnerRole
   S3AccessForEC2Policy:
     Type: AWS::IAM::Policy
     DependsOn: EC2ProcessorRole
     Properties:
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Sid: s3AccesForEc2
             Effect: Allow
@@ -224,17 +217,14 @@ Resources:
               - arn:aws:s3:::ec2-lambda-code
               - arn:aws:s3:::*/*
       PolicyName: s3-access-for-ec2
-      Roles: 
-        - !Join
-            - ''
-            - - !Ref GenericPrefix
-              - EC2-Processor-Role
+      Roles:
+        - !Ref EC2ProcessorRole
   LambdaAccessForEC2Policy:
     Type: AWS::IAM::Policy
     DependsOn: EC2ProcessorRole
     Properties:
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Sid: VisualEditor0
             Effect: Allow
@@ -243,17 +233,14 @@ Resources:
               - lambda:InvokeAsync
             Resource: !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
       PolicyName: lambda-access-for-ec2
-      Roles: 
-        - !Join
-            - ''
-            - - !Ref GenericPrefix
-              - EC2-Processor-Role
+      Roles:
+        - !Ref EC2ProcessorRole
   CloudWatchAccessForEC2Policy:
     Type: AWS::IAM::Policy
     DependsOn: EC2ProcessorRole
     Properties:
       PolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Action:
@@ -267,11 +254,8 @@ Resources:
             Resource:
               - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:ec2-lambda:*
       PolicyName: cloudwatch-access-for-ec2
-      Roles: 
-        - !Join
-            - ''
-            - - !Ref GenericPrefix
-              - EC2-Processor-Role
+      Roles:
+        - !Ref EC2ProcessorRole
   LambdaEC2RunnerRole:
     Type: AWS::IAM::Role
     Properties:
@@ -306,7 +290,6 @@ Resources:
   EC2ProcessorRole:
     Type: AWS::IAM::Role
     Properties:
-
       AssumeRolePolicyDocument: |
         {
             "Version": "2012-10-17",
@@ -322,7 +305,7 @@ Resources:
         }
       RoleName: 
         !Join
-          - ""
+          - ''
           - - !Ref GenericPrefix
             - EC2-Processor-Role
       Tags:
@@ -336,7 +319,9 @@ Resources:
 # Lambda Functions
   EC2StarterLambda:
     Type: AWS::Lambda::Function
-    DependsOn: LambdaEC2RunnerRole
+    DependsOn:
+      - LambdaEC2RunnerRole
+      - PrivateSubnetRouteTable
     Properties:
       Code:
         ZipFile: |
@@ -425,11 +410,7 @@ Resources:
                 - !Ref ProjectName
           code_bucket: !Ref CodeBucket
           subnet_id: !Ref PrivateSubnet
-          instance_profile: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - EC2-Processor-Profile
+          instance_profile: !Ref EC2InstanceProfile
       VpcConfig:
         SecurityGroupIds:
           - !GetAtt DedicatedVPC.DefaultSecurityGroup
@@ -444,7 +425,9 @@ Resources:
                 - !Ref ProjectName
   EC2KillerLambda:
     Type: AWS::Lambda::Function
-    DependsOn: LambdaEC2RunnerRole
+    DependsOn:
+      - LambdaEC2RunnerRole
+      - PrivateSubnetRouteTable
     Properties:
       Code:
         ZipFile: |
@@ -512,8 +495,5 @@ Resources:
           - ''
           - - !Ref GenericPrefix
             - EC2-Processor-Profile
-      Roles: 
-        - !Join
-            - ''
-            - - !Ref GenericPrefix
-              - EC2-Processor-Role
+      Roles:
+        - !Ref EC2ProcessorRole
