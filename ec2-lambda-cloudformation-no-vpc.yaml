@@ -9,96 +9,8 @@ Parameters:
     Default: EC2-Lambda
   BucketPrefix:
     Type: String
-    Default: ec2-lambda
-  AvailabilityZoneForSubnet:
-    Type: String
-    Default: eu-west-1a
+    Default: ec2-lambda  
 Resources:
-# VPC Endpoints
-  CWLInterfaceEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
-      VpcId: !Ref DedicatedVPC
-      SubnetIds:
-        - !Ref PrivateSubnet
-  LambdaInterfaceEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.lambda
-      VpcId: !Ref DedicatedVPC
-      SubnetIds:
-        - !Ref PrivateSubnet
-  EC2InterfaceEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Interface
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2
-      VpcId: !Ref DedicatedVPC
-      SubnetIds:
-        - !Ref PrivateSubnet
-  S3GatewayEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      VpcEndpointType: Gateway
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
-      VpcId: !Ref DedicatedVPC
-      RouteTableIds:
-        - !Ref RouteTable
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal: '*'
-            Action:
-              - s3:*
-            Resource:
-              - arn:aws:s3:::*
-
-# Network
-  DedicatedVPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.10.0.0/28
-      EnableDnsSupport: true
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-  PrivateSubnet:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref DedicatedVPC
-      CidrBlock: !GetAtt DedicatedVPC.CidrBlock
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-  RouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref DedicatedVPC
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-  PrivateSubnetRouteTable:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref RouteTable
-      SubnetId: !Ref PrivateSubnet
-      
 # S3 Buckets
   InputBucket:
     Type: AWS::S3::Bucket
@@ -447,11 +359,6 @@ Resources:
           code_bucket: !Ref CodeBucket
           subnet_id: !Ref PrivateSubnet
           instance_profile: !Ref EC2InstanceProfile
-      VpcConfig:
-        SecurityGroupIds:
-          - !GetAtt DedicatedVPC.DefaultSecurityGroup
-        SubnetIds:
-          - !Ref PrivateSubnet
       Tags:
         - Key: Project
           Value: 
@@ -493,11 +400,6 @@ Resources:
             - ec2KillerLambda
       MemorySize: 128
       Timeout: 15
-      VpcConfig:
-        SecurityGroupIds:
-          - !GetAtt DedicatedVPC.DefaultSecurityGroup
-        SubnetIds:
-          - !Ref PrivateSubnet
       Tags:
         - Key: Project
           Value: 
