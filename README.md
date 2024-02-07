@@ -130,6 +130,37 @@ ts Names
     ]
 }
 ```
+- ec2-access-for-ec2
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": "ec2:DescribeTags",
+            "Resource": "*"
+        }
+    ]
+}
+```
+- system-manager-access-for-ec2
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameter"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
 ###
  Roles
 - Lambda-EC2-Runner-Role  
@@ -142,6 +173,8 @@ ts Names
     * _s3-access-for-ec2_ policy: Interacts with S3 using   
     * _lambda-access-for-ec2_ policy: Allows triggering lambda functions 
     * _cloudwatch-access-for-ec2_ policy: Log to cloudwatch
+    * _ec2-access-for-ec2_ policy: Get the 'Project' tag for the running instance
+    * _system-manager-access-for-ec2_ policy: Get the code bucket parameter based on the 'Project' tag
 
 ### Buckets
 - ec2-lambda-input
@@ -190,6 +223,10 @@ def lambda_handler(event, context):
                         'Key': 'Project',
                         'Value': projectName
                     },
+                    {
+                        'Key': 'Name',
+                        'Value': 'dotnetRunner'
+                    }
                 ]
             },
             {
@@ -254,7 +291,16 @@ This will be useful if shutting down the instance from within dotnet core is an 
 - killable-appserver-ami
 Script running on boot
 ```
-aws s3 sync s3://ec2-lambda-code/process-starter/publish/ ~/apps/processStarter
+TAG_NAME="Project"
+INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
+REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
+TAG_VALUE="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
+
+aws ssm get-parameter --name /${TAG_VALUE}/codeBucket --region ${REGION} > parameter
+S3_CODE_BUCKET=`awk -F '"' '/Value/{print $(NF-1)}' param`
+
+aws s3 sync s3://$S3_CODE_BUCKET ~/apps/processStarter
+
 . ~/apps/processStarter/runProcess.sh
 ```
 _runProcess.sh_ (in solution) contains all instructions for the instance, including termination call to lambda.
