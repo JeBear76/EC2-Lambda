@@ -289,11 +289,6 @@ Resources:
                   IamInstanceProfile={
                       'Name': instanceProfile
                   },
-                  PrivateDnsNameOptions={
-                      'HostnameType': 'resource-name',
-                      'EnableResourceNameDnsARecord': True,
-                      'EnableResourceNameDnsAAAARecord': False
-                  },
                   TagSpecifications=[
                       {
                           'ResourceType': 'instance',

@@ -296,7 +296,7 @@ INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
 REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
 TAG_VALUE="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
 
-aws ssm get-parameter --name /${TAG_VALUE}/codeBucket --region ${REGION} > parameter
+aws ssm get-parameter --name /${TAG_VALUE}/codeBucket --region ${REGION} > param
 S3_CODE_BUCKET=`awk -F '"' '/Value/{print $(NF-1)}' param`
 
 aws s3 sync s3://$S3_CODE_BUCKET ~/apps/processStarter
