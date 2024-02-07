@@ -196,7 +196,9 @@ import json
 import boto3
 def lambda_handler(event, context):
     client = boto3.client("ec2")
+
     dryRun=eval(event.get('dryRun', 'False'))
+    
     subnetId = os.environ['subnet_id']
     projectName = os.environ['project']
     instanceProfile = os.environ['instance_profile']

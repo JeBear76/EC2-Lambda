@@ -10,6 +10,15 @@ Parameters:
   BucketPrefix:
     Type: String
     Default: ec2-lambda  
+  PrivateSubnet:
+    Type: String
+    Default: subnet-0fad952b9207a3385
+  SecurityGroup:
+    Type: String
+    Default: sg-08a3994f35732e49d
+  AMI:
+    Type: String
+    Default: ami-0e2e48dfda8ba4955
 Resources:
 # S3 Buckets
   InputBucket:
@@ -105,10 +114,42 @@ Resources:
           - Sid: VisualEditor0
             Effect: Allow
             Action: iam:PassRole
-            Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/${EC2ProcessorRole}
+            Resource: !GetAtt EC2ProcessorRole.Arn
       PolicyName: iam-access-for-lambda
       Roles:
         - !Ref LambdaEC2RunnerRole
+  LambdaEC2RunnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      RoleName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - Lambda-EC2-Runner-Role
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+
   S3AccessForEC2Policy:
     Type: AWS::IAM::Policy
     DependsOn: EC2ProcessorRole
@@ -124,9 +165,9 @@ Resources:
               - s3:ListBucket
               - s3:DeleteObject
             Resource:
-              - arn:aws:s3:::ec2-lambda-input
-              - arn:aws:s3:::ec2-lambda-output
-              - arn:aws:s3:::ec2-lambda-code
+              - !Sub arn:aws:s3:::${InputBucket}
+              - !Sub arn:aws:s3:::${OutputBucket}
+              - !Sub arn:aws:s3:::${CodeBucket}
               - arn:aws:s3:::*/*
       PolicyName: s3-access-for-ec2
       Roles:
@@ -164,7 +205,7 @@ Resources:
               - logs:CreateLogStream
               - logs:PutLogEvents
             Resource:
-              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:ec2-lambda:*
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
       PolicyName: cloudwatch-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
@@ -196,37 +237,6 @@ Resources:
       PolicyName: system-manager-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
-  LambdaEC2RunnerRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument: |
-        {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": {
-                        "Service": "lambda.amazonaws.com"
-                    },
-                    "Action": "sts:AssumeRole"
-                }
-            ]
-        }
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
-      RoleName: 
-        !Join
-          - ''
-          - - !Ref GenericPrefix
-            - Lambda-EC2-Runner-Role
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
   EC2ProcessorRole:
     Type: AWS::IAM::Role
     Properties:
@@ -255,13 +265,38 @@ Resources:
               - ''
               - - !Ref GenericPrefix
                 - !Ref ProjectName
-  
+
+# System Manager Parameter
+  CodeBucketSSMParameterForAmi:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      DataType: text
+      Description: EC2 bucket and prefix for EC2 instance to download executable code
+      Name: 
+        !Join 
+          - ''
+          - - '/'
+            - !Ref GenericPrefix
+            - !Ref ProjectName
+            - '/codeBucket'
+      Tags:
+        Project: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+      Value: 
+        !Join 
+          - ''
+          - - !Ref CodeBucket
+            - '/publish'
+
 # Lambda Functions
   EC2StarterLambda:
     Type: AWS::Lambda::Function
     DependsOn:
       - LambdaEC2RunnerRole
-      - PrivateSubnetRouteTable
     Properties:
       Code:
         ZipFile: |
@@ -270,19 +305,25 @@ Resources:
           import boto3
           def lambda_handler(event, context):
               client = boto3.client("ec2")
+              
               dryRun=eval(event.get('dryRun', 'False'))
+              
               subnetId = os.environ['subnet_id']
+              securityGroupId = os.environ['security_group_id']
               projectName = os.environ['project']
               instanceProfile = os.environ['instance_profile']
-              #base Amazon Linux 2 with dotnet 6.0 'ami-056d2deb35634ac41'
               baseAmi = os.environ['killable_appserver_ami']
               keyPair = os.environ['key_pair']
               codeBucket = os.environ['code_bucket']
+
               response = client.run_instances(
                   ImageId=baseAmi,
                   KeyName=keyPair,
                   InstanceType='t2.micro',
                   SubnetId= subnetId,
+                  SecurityGroupIds=[
+                      securityGroupId,
+                  ]
                   MinCount=1,
                   MaxCount=1,
                   InstanceInitiatedShutdownBehavior='terminate',
@@ -340,7 +381,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          killable_appserver_ami: ami-0abf34f97b1c6785d
+          killable_appserver_ami: !Ref AMI
           key_pair: 
             !Join
               - ''
@@ -354,6 +395,7 @@ Resources:
           code_bucket: !Ref CodeBucket
           subnet_id: !Ref PrivateSubnet
           instance_profile: !Ref EC2InstanceProfile
+          security_group_id: !Ref SecurityGroup
       Tags:
         - Key: Project
           Value: 
@@ -365,7 +407,6 @@ Resources:
     Type: AWS::Lambda::Function
     DependsOn:
       - LambdaEC2RunnerRole
-      - PrivateSubnetRouteTable
     Properties:
       Code:
         ZipFile: |
