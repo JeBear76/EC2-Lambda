@@ -211,6 +211,9 @@ def lambda_handler(event, context):
         KeyName=keyPair,
         InstanceType='t2.micro',
         SubnetId= subnetId,
+        SecurityGroupIds=[
+            securityGroupId,
+        ],
         MinCount=1,
         MaxCount=1,
         InstanceInitiatedShutdownBehavior='terminate',

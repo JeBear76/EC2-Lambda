@@ -323,7 +323,7 @@ Resources:
                   SubnetId= subnetId,
                   SecurityGroupIds=[
                       securityGroupId,
-                  ]
+                  ],
                   MinCount=1,
                   MaxCount=1,
                   InstanceInitiatedShutdownBehavior='terminate',
