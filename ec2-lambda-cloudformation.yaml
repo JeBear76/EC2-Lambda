@@ -1,0 +1,513 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2-Lambda
+Parameters:
+  GenericPrefix:
+    Description: This will prefix all resource names
+    Type: String
+  ProjectName: 
+    Description: Will be prefixed with Generic prefix and used for tagging (must start with CAD-/cad-)
+    Type: String
+    AllowedPattern: (^CAD-|^cad-)[\w-]{1,58}\w$
+    MinLength: 8
+  BucketPrefix:
+    Description: To create input, output and code buckets
+    Type: String 
+    AllowedPattern: (?!(^xn--|.+-s3alias$))^cad-[a-z0-9-]{3,58}[a-z0-9]$
+  PrivateSubnet:
+    Description: Where do we put all this
+    Type: String
+    Default: subnet-0fad952b9207a3385
+  SecurityGroup:
+    Description: Security group to use when Lambda launches the instance
+    Type: String
+    Default: sg-08a3994f35732e49d
+  AMI:
+    Description: Amazon Linux Ami with dornet 6
+    Type: String
+    Default: ami-056d2deb35634ac41  
+Resources:
+# S3 Buckets
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - !Ref BucketPrefix
+            - '-input'
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+  OutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - !Ref BucketPrefix
+            - '-output'
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+  CodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - !Ref BucketPrefix
+            - '-code'
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+
+# IAM Policies and Roles
+  EC2AccesForLambdaPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: LambdaEC2RunnerRole
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DescribeTags
+            Effect: Allow
+            Action: ec2:DescribeTags
+            Resource: '*'
+          - Sid: StartStopTerminateInstancesInAccount
+            Effect: Allow
+            Action:
+              - ec2:StartInstances
+              - ec2:RunInstances
+              - ec2:TerminateInstances
+              - ec2:StopInstances
+              - ec2:CreateTags
+            Resource:
+              - !Sub arn:aws:ec2:${AWS::Region}::image/ami-*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:key-pair/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/*
+              - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:volume/*
+      PolicyName: poc-ec2-access-for-lambda
+      Roles:
+        - !Ref LambdaEC2RunnerRole
+  IAMAccessForLambdaPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: LambdaEC2RunnerRole
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: VisualEditor0
+            Effect: Allow
+            Action: iam:PassRole
+            Resource: !GetAtt EC2ProcessorRole.Arn
+      PolicyName: iam-access-for-lambda
+      Roles:
+        - !Ref LambdaEC2RunnerRole
+  LambdaEC2RunnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      RoleName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - Lambda-EC2-Runner-Role
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+
+  S3AccessForEC2Policy:
+    Type: AWS::IAM::Policy
+    DependsOn: EC2ProcessorRole
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: s3AccesForEc2
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:DeleteObject
+            Resource:
+              - !Sub arn:aws:s3:::${InputBucket}
+              - !Sub arn:aws:s3:::${OutputBucket}
+              - !Sub arn:aws:s3:::${CodeBucket}
+              - arn:aws:s3:::*/*
+      PolicyName: s3-access-for-ec2
+      Roles:
+        - !Ref EC2ProcessorRole
+  LambdaAccessForEC2Policy:
+    Type: AWS::IAM::Policy
+    DependsOn: EC2ProcessorRole
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: VisualEditor0
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+              - lambda:InvokeAsync
+            Resource: !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
+      PolicyName: lambda-access-for-ec2
+      Roles:
+        - !Ref EC2ProcessorRole
+  CloudWatchAccessForEC2Policy:
+    Type: AWS::IAM::Policy
+    DependsOn: EC2ProcessorRole
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:DescribeLogGroups
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+      PolicyName: cloudwatch-access-for-ec2
+      Roles:
+        - !Ref EC2ProcessorRole
+  EC2AccessForEC2Policy:
+    Type: AWS::IAM::Policy
+    DependsOn: EC2ProcessorRole
+    Properties:
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ec2:DescribeTags
+            Resource: '*'
+      PolicyName: ec2-access-for-ec2
+      Roles:
+        - !Ref EC2ProcessorRole
+  SystemManagerAccessForEC2Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument: 
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:DescribeParameters
+              - ssm:GetParameter
+            Resource: '*'
+      PolicyName: system-manager-access-for-ec2
+      Roles:
+        - !Ref EC2ProcessorRole
+  EC2ProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: |
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "ec2.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+      RoleName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - EC2-Processor-Role
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+
+# System Manager Parameter
+  CodeBucketSSMParameterForAmi:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Type: String
+      DataType: text
+      Description: EC2 bucket and prefix for EC2 instance to download executable code
+      Name: 
+        !Join 
+          - ''
+          - - '/'
+            - !Ref GenericPrefix
+            - !Ref ProjectName
+            - '/codeBucket'
+      Tags:
+        Project: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+      Value: 
+        !Join 
+          - ''
+          - - !Ref CodeBucket
+            - '/publish'
+
+# Lambda Functions
+  EC2StarterLambda:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaEC2RunnerRole
+    Properties:
+      Code:
+        ZipFile: |
+          import os
+          import json
+          import boto3
+          def lambda_handler(event, context):
+              client = boto3.client("ec2")
+              
+              dryRun=eval(event.get('dryRun', 'False'))
+              
+              subnetId = os.environ['subnet_id']
+              securityGroupId = os.environ['security_group_id']
+              projectName = os.environ['project']
+              instanceProfile = os.environ['instance_profile']
+              baseAmi = os.environ['killable_appserver_ami']
+              keyPair = os.environ['key_pair']
+              codeBucket = os.environ['code_bucket']
+
+              response = client.run_instances(
+                  ImageId=baseAmi,
+                  KeyName=keyPair,
+                  InstanceType='t2.micro',
+                  SubnetId= subnetId,
+                  SecurityGroupIds=[
+                      securityGroupId,
+                  ],
+                  MinCount=1,
+                  MaxCount=1,
+                  InstanceInitiatedShutdownBehavior='terminate',
+                  IamInstanceProfile={
+                      'Name': instanceProfile
+                  },
+                  TagSpecifications=[
+                      {
+                          'ResourceType': 'instance',
+                          'Tags': [
+                              {
+                                  'Key': 'Project',
+                                  'Value': projectName
+                              },
+                              {
+                                  'Key': 'Name',
+                                  'Value': 'dotnetRunner'
+                              },
+                          ]
+                      },
+                      {
+                          'ResourceType': 'network-interface',
+                          'Tags': [
+                              {
+                                  'Key': 'Project',
+                                  'Value': projectName
+                              },
+                          ]
+                      },
+                      {
+                          'ResourceType': 'volume',
+                          'Tags': [
+                              {
+                                  'Key': 'Project',
+                                  'Value': projectName
+                              },
+                          ]
+                      }
+                  ],
+                  UserData='''
+                  #!/bin/bash
+                  sudo service awslogs start
+                  (TAG_NAME="Project"
+                  INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
+                  REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
+                  TAG_VALUE="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
+                  
+                  aws ssm get-parameter --name /${TAG_VALUE}/codeBucket --region ${REGION} > param
+                  S3_CODE_BUCKET=`awk -F '"' '/Value/{print $(NF-1)}' param`
+                  
+                  aws s3 sync s3://$S3_CODE_BUCKET ~/apps/processStarter
+                  
+                  . ~/apps/processStarter/runProcess.sh) 2>&1
+                  ''',
+                  DryRun=dryRun
+              )
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps(response, default=str)
+              }
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaEC2RunnerRole.Arn
+      Runtime: python3.12
+      FunctionName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - ec2StarterLambda
+      MemorySize: 128
+      Timeout: 60
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+        SystemLogLevel: INFO
+      Environment:
+        Variables:
+          killable_appserver_ami: !Ref AMI
+          key_pair: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - ec2-lambda-keypair
+          project: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+          code_bucket: !Ref CodeBucket
+          subnet_id: !Ref PrivateSubnet
+          instance_profile: !Ref EC2InstanceProfile
+          security_group_id: !Ref SecurityGroup
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+  EC2KillerLambda:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaEC2RunnerRole
+    Properties:
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          def lambda_handler(event, context):
+              client = boto3.client("ec2")
+              instance = event['instance']
+              dryRun = eval(event['dryRun'])
+              response = client.terminate_instances(
+                  InstanceIds=[
+                      instance
+                  ],
+                  DryRun=dryRun
+              )
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps(response)
+              }
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaEC2RunnerRole.Arn
+      Runtime: python3.12
+      FunctionName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - ec2KillerLambda
+      MemorySize: 128
+      Timeout: 15
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+        SystemLogLevel: INFO
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+
+# Prerequisites for EC2 Instance Launch
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - ec2-lambda-keypair
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    DependsOn: EC2ProcessorRole
+    Properties:
+      InstanceProfileName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - EC2-Processor-Profile
+      Roles:
+        - !Ref EC2ProcessorRole
