@@ -847,7 +847,6 @@ Resources:
   #     - CWLogsInterfaceEndpoint
   #   Properties:
   #     ServiceToken: !GetAtt VPCEndpointTaggerLambda.Arn
-  #     Region: ${AWS::Region}
 Outputs:
   EC2KillerLambdaExport:
     Description: The lambda killer function name
