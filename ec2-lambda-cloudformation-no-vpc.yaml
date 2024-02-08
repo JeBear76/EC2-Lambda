@@ -401,6 +401,15 @@ Resources:
             - ec2StarterLambda
       MemorySize: 128
       Timeout: 60
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+        SystemLogLevel: INFO
       Environment:
         Variables:
           killable_appserver_ami: !Ref AMI
@@ -458,6 +467,15 @@ Resources:
             - ec2KillerLambda
       MemorySize: 128
       Timeout: 15
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+        SystemLogLevel: INFO
       Tags:
         - Key: Project
           Value: 
