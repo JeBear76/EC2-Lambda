@@ -302,10 +302,7 @@ Resources:
         !Join 
           - '/'
           - - ''
-            - !Join 
-              - '-'
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+            - !Ref ProjectName
             - 'codeBucket'
       Tags:
         Project: !Ref ProjectName
