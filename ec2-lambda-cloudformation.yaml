@@ -702,10 +702,10 @@ Resources:
               logger.info(event)
               try:
                 client = boto3.client("ec2")
-                client.create_tags(
+                logger.info(json.dumps(client.create_tags(
                     DryRun=False,
                     Resources=[
-                        os.environ['ssm_interface_endpoint']
+                        os.environ['ssm_interface_endpoint'],
                     ],
                     Tags=[
                         {
@@ -713,11 +713,12 @@ Resources:
                             'Value': f'${os.environ['project']}-ssm'
                         }
                     ]
+                )))
 
-                client.create_tags(
+                logger.info(json.dumps(client.create_tags(
                     DryRun=False,
                     Resources=[
-                        os.environ['s3_gateway_endpoint']
+                        os.environ['s3_gateway_endpoint'],
                     ],
                     Tags=[
                         {
@@ -725,11 +726,12 @@ Resources:
                             'Value': f'${os.environ['project']}-s3'
                         }
                     ]
+                )))
                 
-                client.create_tags(
+                logger.info(json.dumps(client.create_tags(
                     DryRun=False,
                     Resources=[
-                        os.environ['lambda_interface_endpoint']
+                        os.environ['lambda_interface_endpoint'],
                     ],
                     Tags=[
                         {
@@ -737,11 +739,12 @@ Resources:
                             'Value': f'${os.environ['project']}-lambda'
                         }
                     ]
+                )))
                 
-                client.create_tags(
+                logger.info(json.dumps(client.create_tags(
                     DryRun=False,
                     Resources=[
-                        os.environ['ec2_interface_endpoint']
+                        os.environ['ec2_interface_endpoint'],
                     ],
                     Tags=[
                         {
@@ -749,11 +752,12 @@ Resources:
                             'Value': f'${os.environ['project']}-ec2'
                         }
                     ]
+                )))
                 
-                client.create_tags(
+                logger.info(json.dumps(client.create_tags(
                     DryRun=False,
                     Resources=[
-                        os.environ['cwlogs_interface_endpoint']
+                        os.environ['cwlogs_interface_endpoint'],
                     ],
                     Tags=[
                         {
@@ -761,8 +765,9 @@ Resources:
                             'Value': f'${os.environ['project']}-cwlogs'
                         }
                     ]
+                )))
                 
-                response = client.create_tags(
+                response=client.create_tags(
                     DryRun=False,
                     Resources=[
                         os.environ['ssm_interface_endpoint'],
@@ -788,6 +793,7 @@ Resources:
               cfnresponse.send(event, context, cfnResult)
               
               return True
+
       Runtime: python3.12
       FunctionName: 
         !Join
