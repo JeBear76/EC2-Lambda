@@ -465,7 +465,10 @@ Resources:
           import os
           import json
           import boto3
+          import logging
+          logger = logging.getLogger()
           def lambda_handler(event, context):
+              logger.info(event)
               client = boto3.client("ec2")
               
               dryRun=eval(event.get('dryRun', 'False'))
@@ -606,7 +609,10 @@ Resources:
         ZipFile: |
           import json
           import boto3
+          import logging
+          logger = logging.getLogger()
           def lambda_handler(event, context):
+              logger.info(event)
               client = boto3.client("ec2")
               instance = event['instance']
               dryRun = eval(event['dryRun'])
@@ -686,9 +692,13 @@ Resources:
       Description: Function to Tag VPC Enpoints in CloudFormation
       Code:
         ZipFile: |
+          import os
           import json
           import boto3
+          import logging
+          logger = logging.getLogger()
           def lambda_handler(event, context):
+              logger.info(event)
               client = boto3.client("ec2")
               client.create_tags(
                   DryRun=False,
