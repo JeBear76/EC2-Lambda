@@ -91,6 +91,7 @@ Resources:
     Properties:
       CidrBlock: !Ref VPCCidrBlock
       EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Project
           Value: 
