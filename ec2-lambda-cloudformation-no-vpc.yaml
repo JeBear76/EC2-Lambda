@@ -2,23 +2,29 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: EC2-Lambda
 Parameters:
   GenericPrefix:
+    Description: This will prefix all resource names
     Type: String
-    Default: cf-
-  ProjectName:
+  ProjectName: 
+    Description: Will be prefixed with Generic prefix and used for tagging (must start with CAD-/cad-)
     Type: String
-    Default: EC2-Lambda
+    AllowedPattern: (^CAD-|^cad-)[\w-]{1,58}\w$
+    MinLength: 8
   BucketPrefix:
-    Type: String
-    Default: ec2-lambda  
+    Description: To create input, output and code buckets
+    Type: String 
+    AllowedPattern: (?!(^xn--|.+-s3alias$))^cad-[a-z0-9-]{3,58}[a-z0-9]$
   PrivateSubnet:
+    Description: Where do we put all this
     Type: String
     Default: subnet-0fad952b9207a3385
   SecurityGroup:
+    Description: Security group to use when Lambda launches the instance
     Type: String
     Default: sg-08a3994f35732e49d
   AMI:
+    Description: Amazon Linux Ami with dornet 6
     Type: String
-    Default: ami-0e2e48dfda8ba4955
+    Default: ami-056d2deb35634ac41  
 Resources:
 # S3 Buckets
   InputBucket:
@@ -204,6 +210,7 @@ Resources:
             Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
+              - logs:DescribeLogStreams
             Resource:
               - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
       PolicyName: cloudwatch-access-for-ec2
@@ -363,6 +370,21 @@ Resources:
                           ]
                       }
                   ],
+                  UserData='''
+                  #!/bin/bash
+                  sudo service awslogs start
+                  (TAG_NAME="Project"
+                  INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
+                  REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
+                  TAG_VALUE="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
+                  
+                  aws ssm get-parameter --name /${TAG_VALUE}/codeBucket --region ${REGION} > param
+                  S3_CODE_BUCKET=`awk -F '"' '/Value/{print $(NF-1)}' param`
+                  
+                  aws s3 sync s3://$S3_CODE_BUCKET ~/apps/processStarter
+                  
+                  . ~/apps/processStarter/runProcess.sh) 2>&1
+                  ''',
                   DryRun=dryRun
               )
               return {
