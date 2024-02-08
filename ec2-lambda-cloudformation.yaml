@@ -164,7 +164,7 @@ Resources:
           CidrIp: !GetAtt PrivateSubnet.CidrBlock
       SecurityGroupEgress:
         - IpProtocol: -1
-          CidrIp: !GetAtt PrivateSubnet.CidrBlock
+          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Project
           Value: 
