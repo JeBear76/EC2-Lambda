@@ -4,15 +4,16 @@ Parameters:
   GenericPrefix:
     Description: This will prefix all resource names
     Type: String
+    AllowedPattern: ^[a-zA-Z]{1,3}$
   ProjectName: 
-    Description: Will be prefixed with Generic prefix and used for tagging (must start with CAD-/cad-)
+    Description: For tagging (must start with CAD-/cad-)
     Type: String
-    AllowedPattern: (^CAD-|^cad-)[\w-]{1,58}\w$
+    AllowedPattern: (^CAD-|^cad-)[\w-]{3,58}\w$
     MinLength: 8
   BucketPrefix:
     Description: To create input, output and code buckets
     Type: String 
-    AllowedPattern: (?!(^xn--|.+-s3alias$))^cad-[a-z0-9-]{3,58}[a-z0-9]$
+    AllowedPattern: (?!(^xn--|.+-s3alias$))^[a-z0-9][a-z0-9-]{6,61}[a-z0-9]$
   PrivateSubnet:
     Description: Where do we put all this
     Type: String
@@ -25,6 +26,10 @@ Parameters:
     Description: Amazon Linux Ami with dornet 6
     Type: String
     Default: ami-056d2deb35634ac41  
+  EC2InstanceName:
+    Description: For tagging, name of the instance 
+    Type: String
+    Default: dotnetRunner
 Resources:
 # S3 Buckets
   InputBucket:
@@ -33,51 +38,39 @@ Resources:
       AccessControl: Private
       BucketName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - !Ref BucketPrefix
-            - '-input'
+            - 'input'
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
   OutputBucket:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
       BucketName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - !Ref BucketPrefix
-            - '-output'
+            - 'output'
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
   CodeBucket:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
       BucketName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - !Ref BucketPrefix
-            - '-code'
+            - 'code'
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
 
 # IAM Policies and Roles
   EC2AccesForLambdaPolicy:
@@ -107,7 +100,12 @@ Resources:
               - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*
               - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:subnet/*
               - !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:volume/*
-      PolicyName: poc-ec2-access-for-lambda
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - ec2-access-for-lambda
+
       Roles:
         - !Ref LambdaEC2RunnerRole
   IAMAccessForLambdaPolicy:
@@ -121,7 +119,11 @@ Resources:
             Effect: Allow
             Action: iam:PassRole
             Resource: !GetAtt EC2ProcessorRole.Arn
-      PolicyName: iam-access-for-lambda
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - iam-access-for-lambda
       Roles:
         - !Ref LambdaEC2RunnerRole
   LambdaEC2RunnerRole:
@@ -150,11 +152,7 @@ Resources:
             - Lambda-EC2-Runner-Role
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
 
   S3AccessForEC2Policy:
     Type: AWS::IAM::Policy
@@ -175,7 +173,11 @@ Resources:
               - !Sub arn:aws:s3:::${OutputBucket}
               - !Sub arn:aws:s3:::${CodeBucket}
               - arn:aws:s3:::*/*
-      PolicyName: s3-access-for-ec2
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - s3-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
   LambdaAccessForEC2Policy:
@@ -191,7 +193,11 @@ Resources:
               - lambda:InvokeFunction
               - lambda:InvokeAsync
             Resource: !Sub arn:aws:lambda:*:${AWS::AccountId}:function:*
-      PolicyName: lambda-access-for-ec2
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - lambda-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
   CloudWatchAccessForEC2Policy:
@@ -213,7 +219,11 @@ Resources:
               - logs:DescribeLogStreams
             Resource:
               - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
-      PolicyName: cloudwatch-access-for-ec2
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - cloudwatch-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
   EC2AccessForEC2Policy:
@@ -227,7 +237,11 @@ Resources:
             Action:
               - ec2:DescribeTags
             Resource: '*'
-      PolicyName: ec2-access-for-ec2
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - ec2-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
   SystemManagerAccessForEC2Policy:
@@ -241,7 +255,11 @@ Resources:
               - ssm:DescribeParameters
               - ssm:GetParameter
             Resource: '*'
-      PolicyName: system-manager-access-for-ec2
+      PolicyName: 
+        !Join
+          - '-'
+          - - !Ref GenericPrefix
+            - system-manager-access-for-ec2
       Roles:
         - !Ref EC2ProcessorRole
   EC2ProcessorRole:
@@ -262,14 +280,14 @@ Resources:
         }
       RoleName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - EC2-Processor-Role
       Tags:
         - Key: Project
           Value: 
             !Join
-              - ''
+              - '-'
               - - !Ref GenericPrefix
                 - !Ref ProjectName
 
@@ -282,22 +300,20 @@ Resources:
       Description: EC2 bucket and prefix for EC2 instance to download executable code
       Name: 
         !Join 
-          - ''
-          - - '/'
-            - !Ref GenericPrefix
-            - !Ref ProjectName
-            - '/codeBucket'
+          - '/'
+          - - ''
+            - !Join 
+              - '-'
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+            - 'codeBucket'
       Tags:
-        Project: 
-          !Join
-            - ''
-            - - !Ref GenericPrefix
-              - !Ref ProjectName
+        Project: !Ref ProjectName
       Value: 
         !Join 
-          - ''
+          - '/'
           - - !Ref CodeBucket
-            - '/publish'
+            - 'publish'
 
 # Lambda Functions
   EC2StarterLambda:
@@ -310,7 +326,10 @@ Resources:
           import os
           import json
           import boto3
+          import logging
+          logger = logging.getLogger()
           def lambda_handler(event, context):
+              logger.info(event)
               client = boto3.client("ec2")
               
               dryRun=eval(event.get('dryRun', 'False'))
@@ -318,6 +337,7 @@ Resources:
               subnetId = os.environ['subnet_id']
               securityGroupId = os.environ['security_group_id']
               projectName = os.environ['project']
+              instanceName = os.environ['instance_name']
               instanceProfile = os.environ['instance_profile']
               baseAmi = os.environ['killable_appserver_ami']
               keyPair = os.environ['key_pair']
@@ -347,7 +367,7 @@ Resources:
                               },
                               {
                                   'Key': 'Name',
-                                  'Value': 'dotnetRunner'
+                                  'Value': instanceName
                               },
                           ]
                       },
@@ -396,7 +416,7 @@ Resources:
       Runtime: python3.12
       FunctionName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - ec2StarterLambda
       MemorySize: 128
@@ -404,36 +424,21 @@ Resources:
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
-        LogGroup: 
-          !Join
-            - ''
-            - - !Ref GenericPrefix
-              - !Ref ProjectName
+        LogGroup: !Ref ProjectName
         SystemLogLevel: INFO
       Environment:
         Variables:
           killable_appserver_ami: !Ref AMI
-          key_pair: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - ec2-lambda-keypair
-          project: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          key_pair: !Ref EC2KeyPair
+          project: !Ref ProjectName
           code_bucket: !Ref CodeBucket
           subnet_id: !Ref PrivateSubnet
+          instance_name: !Ref EC2InstanceName
           instance_profile: !Ref EC2InstanceProfile
           security_group_id: !Ref SecurityGroup
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
   EC2KillerLambda:
     Type: AWS::Lambda::Function
     DependsOn:
@@ -462,7 +467,7 @@ Resources:
       Runtime: python3.12
       FunctionName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - ec2KillerLambda
       MemorySize: 128
@@ -470,19 +475,11 @@ Resources:
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
-        LogGroup: 
-          !Join
-            - ''
-            - - !Ref GenericPrefix
-              - !Ref ProjectName
+        LogGroup: !Ref ProjectName
         SystemLogLevel: INFO
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
 
 # Prerequisites for EC2 Instance Launch
   EC2KeyPair:
@@ -490,24 +487,32 @@ Resources:
     Properties:
       KeyName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - ec2-lambda-keypair
       Tags:
         - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
+          Value: !Ref ProjectName
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     DependsOn: EC2ProcessorRole
     Properties:
       InstanceProfileName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - EC2-Processor-Profile
       Roles:
         - !Ref EC2ProcessorRole
+
+Outputs:
+  EC2KillerLambdaExport:
+    Description: The lambda killer function name
+    Value: !GetAtt EC2KillerLambda.Arn
+    Export: 
+      Name: !Sub '${AWS::StackName}-EC2KillerLambda'
+  CodeBucketExport:
+    Description: The bucket where the code must be published
+    Value: !Ref CodeBucket
+    Export: 
+      Name: !Sub '${AWS::StackName}-CodeBucket'
