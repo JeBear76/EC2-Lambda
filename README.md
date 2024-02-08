@@ -121,7 +121,8 @@ ts Names
             "Effect": "Allow",
             "Action": [
                 "logs:CreateLogStream",
-                "logs:PutLogEvents"
+                "logs:PutLogEvents",
+                "logs:DescribeLogStreams"
             ],
             "Resource": [
                 "arn:aws:logs:eu-west-1:523759632228:log-group:ec2-lambda:*"
@@ -196,16 +197,17 @@ import json
 import boto3
 def lambda_handler(event, context):
     client = boto3.client("ec2")
-
+    
     dryRun=eval(event.get('dryRun', 'False'))
     
     subnetId = os.environ['subnet_id']
+    securityGroupId = os.environ['security_group_id']
     projectName = os.environ['project']
     instanceProfile = os.environ['instance_profile']
-    #base Amazon Linux 2 with dotnet 6.0 'ami-056d2deb35634ac41'
     baseAmi = os.environ['killable_appserver_ami']
     keyPair = os.environ['key_pair']
     codeBucket = os.environ['code_bucket']
+
     response = client.run_instances(
         ImageId=baseAmi,
         KeyName=keyPair,
@@ -231,7 +233,7 @@ def lambda_handler(event, context):
                     {
                         'Key': 'Name',
                         'Value': 'dotnetRunner'
-                    }
+                    },
                 ]
             },
             {
@@ -253,6 +255,21 @@ def lambda_handler(event, context):
                 ]
             }
         ],
+        UserData='''
+        #!/bin/bash
+        sudo service awslogs start
+        (TAG_NAME="Project"
+        INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
+        REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
+        TAG_VALUE="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
+        
+        aws ssm get-parameter --name /${TAG_VALUE}/codeBucket --region ${REGION} > param
+        S3_CODE_BUCKET=`awk -F '"' '/Value/{print $(NF-1)}' param`
+        
+        aws s3 sync s3://$S3_CODE_BUCKET ~/apps/processStarter
+        
+        . ~/apps/processStarter/runProcess.sh) 2>&1
+        ''',
         DryRun=dryRun
     )
     return {
