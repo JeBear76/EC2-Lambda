@@ -37,20 +37,6 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-        - Key: Name
-          Value:
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-                - '-CWLogs'
   LambdaInterfaceEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -61,20 +47,6 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-        - Key: Name
-          Value:
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-                - '-Lambda'
   EC2InterfaceEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -85,20 +57,6 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-        - Key: Name
-          Value:
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-                - '-EC2'
   SSMInterfaceEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -109,20 +67,6 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-        - Key: Name
-          Value:
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-                - '-SSM'
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
