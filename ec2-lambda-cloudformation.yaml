@@ -472,6 +472,7 @@ Resources:
               subnetId = os.environ['subnet_id']
               securityGroupId = os.environ['security_group_id']
               projectName = os.environ['project']
+              instanceName = os.environ['instance_name']
               instanceProfile = os.environ['instance_profile']
               baseAmi = os.environ['killable_appserver_ami']
               keyPair = os.environ['key_pair']
@@ -677,7 +678,152 @@ Resources:
             - EC2-Processor-Profile
       Roles:
         - !Ref EC2ProcessorRole
+# Additional Tagging
+  VPCEndpointTaggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Function to Tag VPC Enpoints in CloudFormation
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          def lambda_handler(event, context):
+              client = boto3.client("ec2")
+              client.create_tags(
+                  DryRun=False,
+                  Resources=[
+                      os.environ['ssm_interface_endpoint']
+                  ],
+                  Tags=[
+                      {
+                          'Key': 'Name',
+                          'Value': f'${os.environ['project']}-ssm'
+                      }
+                  ]
 
+              client.create_tags(
+                  DryRun=False,
+                  Resources=[
+                      os.environ['s3_gateway_endpoint']
+                  ],
+                  Tags=[
+                      {
+                          'Key': 'Name',
+                          'Value': f'${os.environ['project']}-s3'
+                      }
+                  ]
+              
+              client.create_tags(
+                  DryRun=False,
+                  Resources=[
+                      os.environ['lambda_interface_endpoint']
+                  ],
+                  Tags=[
+                      {
+                          'Key': 'Name',
+                          'Value': f'${os.environ['project']}-lambda'
+                      }
+                  ]
+              
+              client.create_tags(
+                  DryRun=False,
+                  Resources=[
+                      os.environ['ec2_interface_endpoint']
+                  ],
+                  Tags=[
+                      {
+                          'Key': 'Name',
+                          'Value': f'${os.environ['project']}-ec2'
+                      }
+                  ]
+              
+              client.create_tags(
+                  DryRun=False,
+                  Resources=[
+                      os.environ['cwlogs_interface_endpoint']
+                  ],
+                  Tags=[
+                      {
+                          'Key': 'Name',
+                          'Value': f'${os.environ['project']}-cwlogs'
+                      }
+                  ]
+              
+              response = client.create_tags(
+                  DryRun=False,
+                  Resources=[
+                      os.environ['ssm_interface_endpoint'],
+                      os.environ['s3_gateway_endpoint'],
+                      os.environ['lambda_interface_endpoint'],
+                      os.environ['ec2_interface_endpoint'],
+                      os.environ['cwlogs_interface_endpoint'],
+                  ],
+                  Tags=[
+                      {
+                          'Key': 'Project',
+                          'Value': os.environ['project']
+                      }
+                  ]
+                      
+              )
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps(response)
+              }
+      Runtime: python3.12
+      FunctionName: 
+        !Join
+          - ''
+          - - !Ref GenericPrefix
+            - vpcTaggerLambda
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaEC2RunnerRole.Arn
+      MemorySize: 128
+      Timeout: 30
+      LoggingConfig:
+        ApplicationLogLevel: INFO
+        LogFormat: JSON
+        LogGroup: 
+          !Join
+            - ''
+            - - !Ref GenericPrefix
+              - !Ref ProjectName
+        SystemLogLevel: INFO
+      VpcConfig:
+        SecurityGroupIds: 
+          - !Ref PrivateSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet
+      Environment:
+        Variables:
+          project: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName          
+          ssm_interface_endpoint: !Ref SSMInterfaceEndpoint
+          s3_gateway_endpoint: !Ref S3GatewayEndpoint
+          lambda_interface_endpoint: !Ref LambdaInterfaceEndpoint
+          ec2_interface_endpoint: !Ref EC2InterfaceEndpoint
+          cwlogs_interface_endpoint: !Ref CWLogsInterfaceEndpoint
+      Tags:
+        - Key: Project
+          Value: 
+            !Join
+              - ''
+              - - !Ref GenericPrefix
+                - !Ref ProjectName
+  VPCEndpointTags:
+    Type: Custom::Tagger
+    DependsOn:
+      - SSMInterfaceEndpoint
+      - S3GatewayEndpoint
+      - LambdaInterfaceEndpoint
+      - EC2InterfaceEndpoint
+      - CWLogsInterfaceEndpoint
+    Properties:
+      ServiceToken: !GetAtt VPCEndpointTaggerLambda.Arn
+      Region: ${AWS::Region}
 Outputs:
   EC2KillerLambdaExport:
     Description: The lambda killer function name
