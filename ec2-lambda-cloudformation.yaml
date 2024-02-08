@@ -686,168 +686,168 @@ Resources:
       Roles:
         - !Ref EC2ProcessorRole
 # Additional Tagging
-  VPCEndpointTaggerLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Function to Tag VPC Enpoints in CloudFormation
-      Code:
-        ZipFile: |
-          import os
-          import json
-          import boto3
-          import logging
-          import cfnresponse
-          logger = logging.getLogger()
-          def lambda_handler(event, context):
-              logger.info(event)
-              try:
-                client = boto3.client("ec2")
-                logger.info(json.dumps(client.create_tags(
-                    DryRun=False,
-                    Resources=[
-                        os.environ['ssm_interface_endpoint'],
-                    ],
-                    Tags=[
-                        {
-                            'Key': 'Name',
-                            'Value': f'${os.environ['project']}-ssm'
-                        }
-                    ]
-                )))
+  # VPCEndpointTaggerLambda:
+  #   Type: AWS::Lambda::Function
+  #   Properties:
+  #     Description: Function to Tag VPC Enpoints in CloudFormation
+  #     Code:
+  #       ZipFile: |
+  #         import os
+  #         import json
+  #         import boto3
+  #         import logging
+  #         import cfnresponse
+  #         logger = logging.getLogger()
+  #         def lambda_handler(event, context):
+  #             logger.info(event)
+  #             try:
+  #               client = boto3.client("ec2")
+  #               logger.info(json.dumps(client.create_tags(
+  #                   DryRun=False,
+  #                   Resources=[
+  #                       os.environ['ssm_interface_endpoint'],
+  #                   ],
+  #                   Tags=[
+  #                       {
+  #                           'Key': 'Name',
+  #                           'Value': f'${os.environ['project']}-ssm'
+  #                       }
+  #                   ]
+  #               )))
 
-                logger.info(json.dumps(client.create_tags(
-                    DryRun=False,
-                    Resources=[
-                        os.environ['s3_gateway_endpoint'],
-                    ],
-                    Tags=[
-                        {
-                            'Key': 'Name',
-                            'Value': f'${os.environ['project']}-s3'
-                        }
-                    ]
-                )))
+  #               logger.info(json.dumps(client.create_tags(
+  #                   DryRun=False,
+  #                   Resources=[
+  #                       os.environ['s3_gateway_endpoint'],
+  #                   ],
+  #                   Tags=[
+  #                       {
+  #                           'Key': 'Name',
+  #                           'Value': f'${os.environ['project']}-s3'
+  #                       }
+  #                   ]
+  #               )))
                 
-                logger.info(json.dumps(client.create_tags(
-                    DryRun=False,
-                    Resources=[
-                        os.environ['lambda_interface_endpoint'],
-                    ],
-                    Tags=[
-                        {
-                            'Key': 'Name',
-                            'Value': f'${os.environ['project']}-lambda'
-                        }
-                    ]
-                )))
+  #               logger.info(json.dumps(client.create_tags(
+  #                   DryRun=False,
+  #                   Resources=[
+  #                       os.environ['lambda_interface_endpoint'],
+  #                   ],
+  #                   Tags=[
+  #                       {
+  #                           'Key': 'Name',
+  #                           'Value': f'${os.environ['project']}-lambda'
+  #                       }
+  #                   ]
+  #               )))
                 
-                logger.info(json.dumps(client.create_tags(
-                    DryRun=False,
-                    Resources=[
-                        os.environ['ec2_interface_endpoint'],
-                    ],
-                    Tags=[
-                        {
-                            'Key': 'Name',
-                            'Value': f'${os.environ['project']}-ec2'
-                        }
-                    ]
-                )))
+  #               logger.info(json.dumps(client.create_tags(
+  #                   DryRun=False,
+  #                   Resources=[
+  #                       os.environ['ec2_interface_endpoint'],
+  #                   ],
+  #                   Tags=[
+  #                       {
+  #                           'Key': 'Name',
+  #                           'Value': f'${os.environ['project']}-ec2'
+  #                       }
+  #                   ]
+  #               )))
                 
-                logger.info(json.dumps(client.create_tags(
-                    DryRun=False,
-                    Resources=[
-                        os.environ['cwlogs_interface_endpoint'],
-                    ],
-                    Tags=[
-                        {
-                            'Key': 'Name',
-                            'Value': f'${os.environ['project']}-cwlogs'
-                        }
-                    ]
-                )))
+  #               logger.info(json.dumps(client.create_tags(
+  #                   DryRun=False,
+  #                   Resources=[
+  #                       os.environ['cwlogs_interface_endpoint'],
+  #                   ],
+  #                   Tags=[
+  #                       {
+  #                           'Key': 'Name',
+  #                           'Value': f'${os.environ['project']}-cwlogs'
+  #                       }
+  #                   ]
+  #               )))
                 
-                response=client.create_tags(
-                    DryRun=False,
-                    Resources=[
-                        os.environ['ssm_interface_endpoint'],
-                        os.environ['s3_gateway_endpoint'],
-                        os.environ['lambda_interface_endpoint'],
-                        os.environ['ec2_interface_endpoint'],
-                        os.environ['cwlogs_interface_endpoint'],
-                    ],
-                    Tags=[
-                        {
-                            'Key': 'Project',
-                            'Value': os.environ['project']
-                        }
-                    ]                      
-                )
-                cfnResult = cfnresponse.SUCCESS
-                logger.info(json.dumps(response))
-              except:
-                cfnResult = cfnresponse.SUCCESS
-                logger.exception('Error Tagging Things')
-                response = '{ \'Exception\': \'Error Tagging Things\' }'
+  #               response=client.create_tags(
+  #                   DryRun=False,
+  #                   Resources=[
+  #                       os.environ['ssm_interface_endpoint'],
+  #                       os.environ['s3_gateway_endpoint'],
+  #                       os.environ['lambda_interface_endpoint'],
+  #                       os.environ['ec2_interface_endpoint'],
+  #                       os.environ['cwlogs_interface_endpoint'],
+  #                   ],
+  #                   Tags=[
+  #                       {
+  #                           'Key': 'Project',
+  #                           'Value': os.environ['project']
+  #                       }
+  #                   ]                      
+  #               )
+  #               cfnResult = cfnresponse.SUCCESS
+  #               logger.info(json.dumps(response))
+  #             except:
+  #               cfnResult = cfnresponse.SUCCESS
+  #               logger.exception('Error Tagging Things')
+  #               response = '{ \'Exception\': \'Error Tagging Things\' }'
               
-              cfnresponse.send(event, context, cfnResult)
+  #             cfnresponse.send(event, context, cfnResult)
               
-              return True
+  #             return True
 
-      Runtime: python3.12
-      FunctionName: 
-        !Join
-          - ''
-          - - !Ref GenericPrefix
-            - vpcTaggerLambda
-      Handler: index.lambda_handler
-      Role: !GetAtt LambdaEC2RunnerRole.Arn
-      MemorySize: 128
-      Timeout: 30
-      LoggingConfig:
-        ApplicationLogLevel: INFO
-        LogFormat: JSON
-        LogGroup: 
-          !Join
-            - ''
-            - - !Ref GenericPrefix
-              - !Ref ProjectName
-        SystemLogLevel: INFO
-      VpcConfig:
-        SecurityGroupIds: 
-          - !Ref PrivateSecurityGroup
-        SubnetIds:
-          - !Ref PrivateSubnet
-      Environment:
-        Variables:
-          project: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName          
-          ssm_interface_endpoint: !Ref SSMInterfaceEndpoint
-          s3_gateway_endpoint: !Ref S3GatewayEndpoint
-          lambda_interface_endpoint: !Ref LambdaInterfaceEndpoint
-          ec2_interface_endpoint: !Ref EC2InterfaceEndpoint
-          cwlogs_interface_endpoint: !Ref CWLogsInterfaceEndpoint
-      Tags:
-        - Key: Project
-          Value: 
-            !Join
-              - ''
-              - - !Ref GenericPrefix
-                - !Ref ProjectName
-  VPCEndpointTags:
-    Type: Custom::Tagger
-    DependsOn:
-      - SSMInterfaceEndpoint
-      - S3GatewayEndpoint
-      - LambdaInterfaceEndpoint
-      - EC2InterfaceEndpoint
-      - CWLogsInterfaceEndpoint
-    Properties:
-      ServiceToken: !GetAtt VPCEndpointTaggerLambda.Arn
-      Region: ${AWS::Region}
+  #     Runtime: python3.12
+  #     FunctionName: 
+  #       !Join
+  #         - ''
+  #         - - !Ref GenericPrefix
+  #           - vpcTaggerLambda
+  #     Handler: index.lambda_handler
+  #     Role: !GetAtt LambdaEC2RunnerRole.Arn
+  #     MemorySize: 128
+  #     Timeout: 30
+  #     LoggingConfig:
+  #       ApplicationLogLevel: INFO
+  #       LogFormat: JSON
+  #       LogGroup: 
+  #         !Join
+  #           - ''
+  #           - - !Ref GenericPrefix
+  #             - !Ref ProjectName
+  #       SystemLogLevel: INFO
+  #     VpcConfig:
+  #       SecurityGroupIds: 
+  #         - !Ref PrivateSecurityGroup
+  #       SubnetIds:
+  #         - !Ref PrivateSubnet
+  #     Environment:
+  #       Variables:
+  #         project: 
+  #           !Join
+  #             - ''
+  #             - - !Ref GenericPrefix
+  #               - !Ref ProjectName          
+  #         ssm_interface_endpoint: !Ref SSMInterfaceEndpoint
+  #         s3_gateway_endpoint: !Ref S3GatewayEndpoint
+  #         lambda_interface_endpoint: !Ref LambdaInterfaceEndpoint
+  #         ec2_interface_endpoint: !Ref EC2InterfaceEndpoint
+  #         cwlogs_interface_endpoint: !Ref CWLogsInterfaceEndpoint
+  #     Tags:
+  #       - Key: Project
+  #         Value: 
+  #           !Join
+  #             - ''
+  #             - - !Ref GenericPrefix
+  #               - !Ref ProjectName
+  # VPCEndpointTags:
+  #   Type: Custom::Tagger
+  #   DependsOn:
+  #     - SSMInterfaceEndpoint
+  #     - S3GatewayEndpoint
+  #     - LambdaInterfaceEndpoint
+  #     - EC2InterfaceEndpoint
+  #     - CWLogsInterfaceEndpoint
+  #   Properties:
+  #     ServiceToken: !GetAtt VPCEndpointTaggerLambda.Arn
+  #     Region: ${AWS::Region}
 Outputs:
   EC2KillerLambdaExport:
     Description: The lambda killer function name
