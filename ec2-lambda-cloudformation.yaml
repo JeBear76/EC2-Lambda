@@ -696,91 +696,98 @@ Resources:
           import json
           import boto3
           import logging
+          import cfnresponse
           logger = logging.getLogger()
           def lambda_handler(event, context):
               logger.info(event)
-              client = boto3.client("ec2")
-              client.create_tags(
-                  DryRun=False,
-                  Resources=[
-                      os.environ['ssm_interface_endpoint']
-                  ],
-                  Tags=[
-                      {
-                          'Key': 'Name',
-                          'Value': f'${os.environ['project']}-ssm'
-                      }
-                  ]
+              try:
+                client = boto3.client("ec2")
+                client.create_tags(
+                    DryRun=False,
+                    Resources=[
+                        os.environ['ssm_interface_endpoint']
+                    ],
+                    Tags=[
+                        {
+                            'Key': 'Name',
+                            'Value': f'${os.environ['project']}-ssm'
+                        }
+                    ]
 
-              client.create_tags(
-                  DryRun=False,
-                  Resources=[
-                      os.environ['s3_gateway_endpoint']
-                  ],
-                  Tags=[
-                      {
-                          'Key': 'Name',
-                          'Value': f'${os.environ['project']}-s3'
-                      }
-                  ]
+                client.create_tags(
+                    DryRun=False,
+                    Resources=[
+                        os.environ['s3_gateway_endpoint']
+                    ],
+                    Tags=[
+                        {
+                            'Key': 'Name',
+                            'Value': f'${os.environ['project']}-s3'
+                        }
+                    ]
+                
+                client.create_tags(
+                    DryRun=False,
+                    Resources=[
+                        os.environ['lambda_interface_endpoint']
+                    ],
+                    Tags=[
+                        {
+                            'Key': 'Name',
+                            'Value': f'${os.environ['project']}-lambda'
+                        }
+                    ]
+                
+                client.create_tags(
+                    DryRun=False,
+                    Resources=[
+                        os.environ['ec2_interface_endpoint']
+                    ],
+                    Tags=[
+                        {
+                            'Key': 'Name',
+                            'Value': f'${os.environ['project']}-ec2'
+                        }
+                    ]
+                
+                client.create_tags(
+                    DryRun=False,
+                    Resources=[
+                        os.environ['cwlogs_interface_endpoint']
+                    ],
+                    Tags=[
+                        {
+                            'Key': 'Name',
+                            'Value': f'${os.environ['project']}-cwlogs'
+                        }
+                    ]
+                
+                response = client.create_tags(
+                    DryRun=False,
+                    Resources=[
+                        os.environ['ssm_interface_endpoint'],
+                        os.environ['s3_gateway_endpoint'],
+                        os.environ['lambda_interface_endpoint'],
+                        os.environ['ec2_interface_endpoint'],
+                        os.environ['cwlogs_interface_endpoint'],
+                    ],
+                    Tags=[
+                        {
+                            'Key': 'Project',
+                            'Value': os.environ['project']
+                        }
+                    ]                      
+                )
+                cfnResult = cfnresponse.SUCCESS
+                logger.info(json.dumps(response))
+              except:
+                cfnResult = cfnresponse.FAILED
+                logger.exception('Error Tagging Things')
+                response = '{ \'Exception\': \'Error Tagging Things\' }'
               
-              client.create_tags(
-                  DryRun=False,
-                  Resources=[
-                      os.environ['lambda_interface_endpoint']
-                  ],
-                  Tags=[
-                      {
-                          'Key': 'Name',
-                          'Value': f'${os.environ['project']}-lambda'
-                      }
-                  ]
+              cfnresponse.send(event, context, cfnResult)
               
-              client.create_tags(
-                  DryRun=False,
-                  Resources=[
-                      os.environ['ec2_interface_endpoint']
-                  ],
-                  Tags=[
-                      {
-                          'Key': 'Name',
-                          'Value': f'${os.environ['project']}-ec2'
-                      }
-                  ]
-              
-              client.create_tags(
-                  DryRun=False,
-                  Resources=[
-                      os.environ['cwlogs_interface_endpoint']
-                  ],
-                  Tags=[
-                      {
-                          'Key': 'Name',
-                          'Value': f'${os.environ['project']}-cwlogs'
-                      }
-                  ]
-              
-              response = client.create_tags(
-                  DryRun=False,
-                  Resources=[
-                      os.environ['ssm_interface_endpoint'],
-                      os.environ['s3_gateway_endpoint'],
-                      os.environ['lambda_interface_endpoint'],
-                      os.environ['ec2_interface_endpoint'],
-                      os.environ['cwlogs_interface_endpoint'],
-                  ],
-                  Tags=[
-                      {
-                          'Key': 'Project',
-                          'Value': os.environ['project']
-                      }
-                  ]
-                      
-              )
-              return {
-                  'statusCode': 200,
-                  'body': json.dumps(response)
-              }
+              return True
       Runtime: python3.12
       FunctionName: 
         !Join
