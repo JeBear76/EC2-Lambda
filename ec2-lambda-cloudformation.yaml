@@ -234,7 +234,7 @@ Resources:
                 - !Ref ProjectName
 
 # IAM Policies and Roles
-  EC2AccesForLambdaPolicy:
+  EC2AccessForLambdaPolicy:
     Type: AWS::IAM::Policy
     DependsOn: LambdaEC2RunnerRole
     Properties:
