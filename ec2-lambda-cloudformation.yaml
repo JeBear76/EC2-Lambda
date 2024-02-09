@@ -14,14 +14,6 @@ Parameters:
     Description: To create input, output and code buckets
     Type: String 
     AllowedPattern: (?!(^xn--|.+-s3alias$))^[a-z0-9][a-z0-9-]{6,61}[a-z0-9]$
-  # PrivateSubnet:
-  #   Description: Where do we put all this
-  #   Type: String
-  #   Default: subnet-0fad952b9207a3385
-  # SecurityGroup:
-  #   Description: Security group to use when Lambda launches the instance
-  #   Type: String
-  #   Default: sg-08a3994f35732e49d
   AMI:
     Description: Amazon Linux Ami with dornet 6
     Type: String
@@ -46,6 +38,7 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
+      PrivateDnsEnabled: true
   LambdaInterfaceEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -56,6 +49,7 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
+      PrivateDnsEnabled: true
   EC2InterfaceEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -66,6 +60,7 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
+      PrivateDnsEnabled: true
   SSMInterfaceEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -76,6 +71,7 @@ Resources:
         - !Ref PrivateSecurityGroup
       SubnetIds:
         - !Ref PrivateSubnet
+      PrivateDnsEnabled: true
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -84,15 +80,6 @@ Resources:
       VpcId: !Ref DedicatedVPC
       RouteTableIds:
         - !Ref RouteTable
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal: '*'
-            Action:
-              - s3:*
-            Resource:
-              - arn:aws:s3:::*
 
 # Network
   DedicatedVPC:
@@ -114,6 +101,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref DedicatedVPC
+      AvailabilityZone: !Select [ 0, !GetAZs ]
       CidrBlock: !GetAtt DedicatedVPC.CidrBlock
       Tags:
         - Key: Project
@@ -156,8 +144,18 @@ Resources:
       SecurityGroupIngress:
         - IpProtocol: -1
           CidrIp: !GetAtt PrivateSubnet.CidrBlock
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
-        - IpProtocol: -1
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
           CidrIp: 0.0.0.0/0
       Tags:
         - Key: Project
@@ -551,7 +549,7 @@ Resources:
           - - !Ref GenericPrefix
             - ec2StarterLambda
       MemorySize: 128
-      Timeout: 60
+      Timeout: 20
       LoggingConfig:
         ApplicationLogLevel: INFO
         LogFormat: JSON
@@ -607,7 +605,7 @@ Resources:
       Runtime: python3.12
       FunctionName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
             - ec2KillerLambda
       MemorySize: 128
@@ -632,9 +630,9 @@ Resources:
     Properties:
       KeyName: 
         !Join
-          - ''
+          - '-'
           - - !Ref GenericPrefix
-            - ec2-lambda-keypair
+            - 'key-pair'
       Tags:
         - Key: Project
           Value: !Ref ProjectName
