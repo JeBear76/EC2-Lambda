@@ -30,6 +30,10 @@ Parameters:
     Description: For tagging, name of the instance 
     Type: String
     Default: dotnetRunner
+  EC2KeyPair:
+    Description: Keypair for SSH in case debug is needed
+    Type: String
+    Default: debug-keypair
 Resources:
 # S3 Buckets
   InputBucket:
@@ -389,8 +393,7 @@ Resources:
                   ],
                   UserData='''
                   #!/bin/bash
-                  sudo service awslogs start
-                  (TAG_NAME="Project"
+                  TAG_NAME="Project"
                   INSTANCE_ID="`wget -qO- http://instance-data/latest/meta-data/instance-id`"
                   REGION="`wget -qO- http://instance-data/latest/meta-data/placement/availability-zone | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
                   TAG_VALUE="`aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=$TAG_NAME" --region $REGION --output=text | cut -f5`"
@@ -400,7 +403,7 @@ Resources:
                   
                   aws s3 sync s3://$S3_CODE_BUCKET ~/apps/processStarter
                   
-                  . ~/apps/processStarter/runProcess.sh) 2>&1
+                  . ~/apps/processStarter/runProcess.sh
                   ''',
                   DryRun=dryRun
               )
@@ -479,17 +482,6 @@ Resources:
           Value: !Ref ProjectName
 
 # Prerequisites for EC2 Instance Launch
-  EC2KeyPair:
-    Type: AWS::EC2::KeyPair
-    Properties:
-      KeyName: 
-        !Join
-          - '-'
-          - - !Ref GenericPrefix
-            - ec2-lambda-keypair
-      Tags:
-        - Key: Project
-          Value: !Ref ProjectName
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     DependsOn: EC2ProcessorRole
