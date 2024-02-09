@@ -1,7 +1,7 @@
 ﻿#!/bin/bash
 (dotnet ~/apps/processStarter/ProcessStarter.dll
 
-aws s3api put-object --bucket jdt-ec2-lambda-output --key processStarter.log --body processStarter.log
+aws s3api put-object --bucket jdt-ec2-lambda-output --key processStarter.log --body processStarter.log --region eu-west-1
 
 instanceId="`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`"
 json="\"instance\":\"${instanceId}\", \"dryRun\":\"False\""
