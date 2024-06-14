@@ -1,4 +1,8 @@
 # EC2 Lambda 
+## Introduction
+The idea is to create an ephemerous ec2 instance to perform CPU or time intensive tasks.  
+This is a cost efficient alternative to the serverless approach to curb the costs of running a large quantity of lambda functions.  
+__The project no longer works properly as AWS instance data needs a header token to query, I will update it soon__
 
 ## Description
 Process 
